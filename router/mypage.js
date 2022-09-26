@@ -23,7 +23,7 @@ const getArticlesWithCommentCount = async (hide, limit, option) => {
 
     return await Promise.all(
         articles_.map(async (article) => {
-            let count = article.commentList.length
+            let count = await Comment.countDocuments({ articleId: article._id })
             for (const comment of article.commentList) {
                 count += await Comment.countDocuments({articleId: comment._id})
             }
