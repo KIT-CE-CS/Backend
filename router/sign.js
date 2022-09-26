@@ -264,6 +264,8 @@ router.delete("/", verifyUser, async (req, res) => {
             console.log("error: ", e)
             return res.status(500).send({ message: "Server Error" })
         }
+        
+        req.session.destroy()   // 세션 삭제
 
         try {
             await user.comparePassword(req.body.password, async (_, isMatch) => {
