@@ -254,6 +254,7 @@ router.patch("/:id", verifyUser, upload.array("fileList"), async (req, res) => {
 
     req.body = JSON.parse(req.body.data)
 
+    console.log(req.body, req.session.authorization)
     // 공지사항 
     if (
         req.body.tag === "notice" &&
