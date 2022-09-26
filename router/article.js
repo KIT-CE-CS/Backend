@@ -83,7 +83,7 @@ const validateAndSetOption = (title, content) => {
     let searchOption = {}
 
     if (title) {
-        searchOption.title = { $regex: title }
+        searchOption.title = { $regex: title, $options: "i" }
     } else if (content) {
         searchOption.content = { $regex: content, $options: "i" }
     } // 검색어가 없는 경우 전체
@@ -103,9 +103,7 @@ const getArticlesWithAuthorName = async (hide, limit, option) => {
 
             let count = await Comment.countDocuments({ articleId: article._id })
             for (const comment of article.commentList) {
-                count += await Comment.countDocuments({
-                    articleId: comment._id,
-                })
+                count += await Comment.countDocuments({ articleId: comment._id })
             }
 
             const info = {
@@ -254,36 +252,40 @@ router.patch("/:id", verifyUser, upload.array("fileList"), async (req, res) => {
     // 수정 권한 조회
     if (!(await checkPermission(req, res, _id, Article))) return
 
+    req.body = JSON.parse(req.body.data)
+
     // 공지사항 
     if (
-        req.body.data.tag === "notice" &&
+        req.body.tag === "notice" &&
         (await isUserClassOne(req.session.authorization))
     ) {
         return res.status(401).send({ message: "No Permission" })
     }
 
-    const updateKeys = Object.keys(JSON.parse(req.body.data))
-    const allowedKeys = ["title", "content", "tag", "fileList"] // 변경 가능한 것
+    const updateKeys = Object.keys(req.body)
+    const allowedKeys = ["title", "content", "tag", "deletedFile"] // 변경 가능한 것
     const isValid = updateKeys.every((key) => allowedKeys.includes(key))
     if (!isValid) {
         return res.status(400).send({ message: "Cannot Update" })
     }
 
-    const multipartType = "multipart/form-data"
+    // deletedFile 삭제
+    req.body.deletedFile.forEach(async (file) => {
+        const fileDoc = await File.findById(file._id)
 
-    // type == multipart    => 기존 파일 삭제
-    if (
-        multipartType ==
-        req.headers["content-type"].slice(0, multipartType.length)
-    ) {
+        // 서버의 uploadFiles에서 제거
+        fs.unlink("uploadfiles/" + fileDoc.newName, (e) => {
+            if (e) console.log("error: ", e)
+        })
+
+        await File.deleteOne({ _id: file._id })
+    })
+    delete req.body.deletedFile
+
+    // fileList 추가
+    if (req.files.length != 0) { 
         const newFileList = new Array()
-
-        // Delete File
-        await deleteFiles(_id)
-
-        // file O          => 들어온 파일 모두 저장
-        if (req.files.length != 0) await addFiles(_id, req.files, newFileList)
-
+        await addFiles(_id, req.files, newFileList)
         req.body.fileList = newFileList
     }
 
